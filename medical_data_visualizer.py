@@ -3,58 +3,84 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 
-# 1
-df = None
+# Calculates the BMI of the person
+def calcBMI(df):
+    return (df['weight']/pow(df['height']/100, 2))
 
-# 2
-df['overweight'] = None
+df = pd.read_csv('./medical_examination.csv')
 
-# 3
+# Assign 1 if person is overweight, 0 if not
+df['overweight'] = np.where(calcBMI(df) > 25, 1,0)
 
+# Normalize 'gluc' and 'cholesterol' column
+df['cholesterol'] = np.where(df['cholesterol'] == 1, 0, 1)
+df['gluc'] = np.where(df['gluc'] == 1, 0,1)
 
-# 4
 def draw_cat_plot():
-    # 5
-    df_cat = None
+    # Create a dataframe for the catplot
+    df_cat =df.melt(id_vars='cardio',
+                    value_vars=['active',
+                                'alco',
+                                'cholesterol',
+                                'gluc',
+                                'overweight',
+                                'smoke'])
 
-
-    # 6
-    df_cat = None
+    # Split it by cardio and show the counts of each feature
+    df_cat = df_cat.groupby(['cardio',
+                             'variable',
+                             'value'])\
+                    .size()\
+                    .reset_index(name='total')
     
+    # Draw the plot
+    graph = sns.catplot(data=df_cat,
+                        x='variable',
+                        y='total',
+                        col='cardio',
+                        hue='value',
+                        kind='bar')
 
-    # 7
+    # Get the figure of the plot
+    fig = graph.figure
 
-
-
-    # 8
-    fig = None
-
-
-    # 9
+    # Save the figure
     fig.savefig('catplot.png')
     return fig
 
-
-# 10
 def draw_heat_map():
-    # 11
-    df_heat = None
+    # Remove rows where diastolic blood pressure (ap_lo) is higher than systolic blood pressure (ap_hi),
+    # as this represents incorrect or erroneous data.
+    valid_bp_range = (df['ap_lo'] <= df['ap_hi'])
 
-    # 12
-    corr = None
+    # Let's remove the outliers
+    height_lower_bound = df['height'].quantile(0.025)
+    height_upper_bound = df['height'].quantile(0.975)
+    height_outliers_removed = (df['height'] >= height_lower_bound)\
+                                & (df['height'] <= height_upper_bound)
 
-    # 13
-    mask = None
+    weight_lower_bound = df['weight'].quantile(0.025)
+    weight_upper_bound = df['weight'].quantile(0.975)
+    weight_outliers_removed = (df['weight'] >= weight_lower_bound)\
+                                & (df['weight'] <= weight_upper_bound)
 
+   # Clean data 
+    df_heat = df[valid_bp_range & weight_outliers_removed & height_outliers_removed]
 
+    # Calculate the correlation matrix
+    corr = df_heat.corr()
 
-    # 14
-    fig, ax = None
+    # Generate mask for the upper triangle
+    mask = np.triu(np.ones_like(corr, dtype=bool))
 
-    # 15
+    # Plot the heatmap
+    fig, ax = plt.subplots(figsize=(12,8))
 
+    sns.heatmap(data=corr,
+                mask=mask,
+                annot=True,
+                fmt='.1f')
 
-
-    # 16
+    # Export figure as an image
     fig.savefig('heatmap.png')
     return fig
